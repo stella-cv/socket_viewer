@@ -8,6 +8,7 @@ let scene, camera, renderer;
 const CURRENT_FRAME_COLOR = "rgb(0,192,0)";
 const KEYFRAME_COLOR = "rgb(92, 85, 250)";
 const EDGE_COLOR = "rgb(192, 223, 255)";
+const MARKER_COLOR = "rgb(255, 0, 255)";
 const BACKGROUND_COLOR = "rgb(255, 255, 255)";
 const REFERENCE_POINT_COLOR = [255, 0, 0];
 
@@ -36,6 +37,7 @@ let cameraFrames = new CameraFrames();
 
 let pointUpdateFlag = false;
 let pointCloud = new PointCloud();
+let markerIndicators = new MarkerIndicators();
 
 let grid;
 
@@ -134,6 +136,8 @@ function render() {
 
     cameraFrames.updateFramesInScene(scene);
 
+    markerIndicators.updateMarkersInScene(scene);
+
     //if(chase_camera == false){
     // 仮　トラックボールコントロール用
     let delta = clock.getDelta();
@@ -228,7 +232,7 @@ function array2mat44(mat, array) {
         mat.push(raw);
     }
 }
-function loadProtobufData(obj, keyframes, edges, points, referencePointIds, currentFramePose) {
+function loadProtobufData(obj, keyframes, edges, points, referencePointIds, currentFramePose, markers) {
     for (let keyframeObj of obj.keyframes) {
         let keyframe = {};
         keyframe["id"] = keyframeObj.id;
@@ -252,6 +256,15 @@ function loadProtobufData(obj, keyframes, edges, points, referencePointIds, curr
     }
     for (let id of obj.localLandmarks) {
         referencePointIds.push(id);
+    }
+    for (let markerObj of obj.markers) {
+        let marker = {};
+        marker["id"] = markerObj.id;
+        if (markerObj.coords.length != 0) {
+            marker["corners_pos"] = markerObj.coords;
+            marker["initialized"] = markerObj.initialized;
+        }
+        markers.push(marker);
     }
     array2mat44(currentFramePose, obj.currentFrame.pose);
 
@@ -277,6 +290,7 @@ function receiveProtobuf(msg) {
     let points = [];
     let referencePointIds = [];
     let currentFramePose = [];
+    let markers = [];
 
     let buffer = base64ToUint8Array(msg);
     let obj = mapSegment.decode(buffer);
@@ -285,8 +299,8 @@ function receiveProtobuf(msg) {
         removeAllElements();
     }
     else {
-        loadProtobufData(obj, keyframes, edges, points, referencePointIds, currentFramePose);
-        updateMapElements(msg.length, keyframes, edges, points, referencePointIds, currentFramePose);
+        loadProtobufData(obj, keyframes, edges, points, referencePointIds, currentFramePose, markers);
+        updateMapElements(msg.length, keyframes, edges, points, referencePointIds, currentFramePose, markers);
     }
 }
 function base64ToUint8Array(base64) {
@@ -299,7 +313,7 @@ function base64ToUint8Array(base64) {
     return bytes;
 }
 
-function updateMapElements(msgSize, keyframes, edges, points, referencePointIds, currentFramePose) {
+function updateMapElements(msgSize, keyframes, edges, points, referencePointIds, currentFramePose, markers) {
     trackStats.update();
     cameraFrames.updateCurrentFrame(currentFramePose);
     viewControls.setCurrentIntrinsic(currentFramePose);
@@ -351,6 +365,33 @@ function updateMapElements(msgSize, keyframes, edges, points, referencePointIds,
 
     pointCloud.colorizeReferencePoints(referencePointIds);
 
+    // update markers
+    for (let marker of markers) {
+        let id = marker["id"];
+        let initialized = marker["initialized"];
+        if (marker["corners_pos"] == undefined) {
+            markerIndicators.removeMarker(id);
+        }
+        else {
+            let x0 = marker["corners_pos"][0] * GLOBAL_SCALE;
+            let y0 = marker["corners_pos"][1] * GLOBAL_SCALE;
+            let z0 = marker["corners_pos"][2] * GLOBAL_SCALE;
+
+            let x1 = marker["corners_pos"][3] * GLOBAL_SCALE;
+            let y1 = marker["corners_pos"][4] * GLOBAL_SCALE;
+            let z1 = marker["corners_pos"][5] * GLOBAL_SCALE;
+
+            let x2 = marker["corners_pos"][6] * GLOBAL_SCALE;
+            let y2 = marker["corners_pos"][7] * GLOBAL_SCALE;
+            let z2 = marker["corners_pos"][8] * GLOBAL_SCALE;
+
+            let x3 = marker["corners_pos"][9] * GLOBAL_SCALE;
+            let y3 = marker["corners_pos"][10] * GLOBAL_SCALE;
+            let z3 = marker["corners_pos"][11] * GLOBAL_SCALE;
+
+            markerIndicators.updateMarker(id, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, initialized);
+        }
+    }
 }
 
 function removeAllElements() {
@@ -367,6 +408,8 @@ function removeAllElements() {
         cameraFrames.removeKeyframe(id);
     }
     cameraFrames.setEdges([]);
+
+    markerIndicators.scheduleRemoveAll();
 }
 
 // calculate inverse of se3 pose matrix
