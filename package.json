@@ -2,7 +2,7 @@
   "name": "socket-viewer",
   "version": "0.0.1",
   "description": "A cross-platform keyframe/landmark/graph viewer",
-  "repository": "https://github.com/stella-cv/stella_vslam",
+  "repository": "https://github.com/stella-cv/socket_viewer",
   "license": "BSD-2-Clause",
   "dependencies": {
     "express": "^4.16.2",
