@@ -29,10 +29,17 @@ message map {
         string txt = 2;
     }
 
+    message marker {
+        uint32 id = 1;
+        repeated double coords = 2;
+        uint32 initialized = 3;
+    }
+
     Mat44 current_frame = 1;
     repeated keyframe keyframes = 2;
     repeated edge edges = 3;
     repeated landmark landmarks = 4;
     repeated uint32 local_landmarks = 5;
     repeated msg messages = 6;
+    repeated marker markers = 7;
 }
